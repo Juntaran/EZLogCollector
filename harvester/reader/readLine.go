@@ -10,7 +10,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/Juntaran/EZLogCollector/streambuf"
+	"github.com/Juntaran/EZLogCollector/harvester/streambuf"
 )
 
 type Line struct {

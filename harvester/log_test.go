@@ -8,8 +8,8 @@ package harvester
 
 import (
 	"fmt"
-	"github.com/Juntaran/EZLogCollector/lcFile"
-	"github.com/Juntaran/EZLogCollector/reader"
+	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
+	"github.com/Juntaran/EZLogCollector/harvester/reader"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
 	"os"

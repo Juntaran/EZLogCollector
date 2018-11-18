@@ -8,7 +8,7 @@ package harvester
 
 import (
 	"fmt"
-	"github.com/Juntaran/EZLogCollector/lcFile"
+	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
 	"io"
 	"log"
 	"os"

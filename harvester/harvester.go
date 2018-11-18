@@ -9,13 +9,13 @@ package harvester
 import (
 	"bytes"
 	"fmt"
-	"github.com/Juntaran/EZLogCollector/reader"
+	"github.com/Juntaran/EZLogCollector/harvester/reader"
 	"io"
 	"log"
 	"os"
 	"time"
 
-	"github.com/Juntaran/EZLogCollector/lcFile"
+	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
 )
 
 type Harvester struct {

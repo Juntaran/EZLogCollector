@@ -6,7 +6,7 @@
 
 package harvester
 
-import "github.com/Juntaran/EZLogCollector/reader"
+import "github.com/Juntaran/EZLogCollector/harvester/reader"
 
 // newLogFileReader creates a new reader to read log files
 //
