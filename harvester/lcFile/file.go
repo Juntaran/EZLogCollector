@@ -9,6 +9,7 @@ package lcFile
 import (
 	"log"
 	"os"
+	"sync"
 	"time"
 )
 
@@ -55,3 +56,39 @@ func IsSameFile(path string, info os.FileInfo) bool {
 	return os.SameFile(fileInfo, info)
 }
 
+// 一批文件状态
+type States struct {
+	states []State
+	mutex  sync.Mutex
+}
+
+func NewStates() *States {
+	return &States{
+		states: []State{},
+	}
+}
+
+// 返回文件状态
+func (s *States) GetStates() []State {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	newStates := make([]State, len(s.states))
+	copy(newStates, s.states)
+
+	return newStates
+}
+
+// 替换原有的文件状态
+func (s *States) SetStates(states []State) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.states = states
+}
+
+// 创建一个新状态对象
+func (s *States) Copy() *States {
+	states := NewStates()
+	states.states = s.GetStates()
+	return states
+}
