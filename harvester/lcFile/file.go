@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -19,14 +20,43 @@ type State struct {
 	Offset      int64       	`json:"offset"`
 	Finished    bool        	`json:"-"` // harvester state
 	Fileinfo    os.FileInfo 	`json:"-"` // the lcFile info
-	//FileStateOS StateOS
+	FileStateOS StateOS
 	Timestamp   time.Time     	`json:"timestamp"`
 	TTL         time.Duration 	`json:"ttl"`
+}
+
+// NewState creates a new file state
+func NewState(fileInfo os.FileInfo, path string) State {
+	return State{
+		Fileinfo:    fileInfo,
+		Source:      path,
+		Finished:    false,
+		FileStateOS: GetOSState(fileInfo),
+		Timestamp:   time.Now(),
+		TTL:         -1 * time.Second, // By default, state does have an infinit ttl
+	}
 }
 
 type StateOS struct {
 	Inode  uint64 `json:"inode,"`
 	Device uint64 `json:"device,"`
+}
+
+// GetOSState returns the FileStateOS for non windows systems
+func GetOSState(info os.FileInfo) StateOS {
+	stat := info.Sys().(*syscall.Stat_t)
+	// Convert inode and dev to uint64 to be cross platform compatible
+	fileState := StateOS{
+		Inode:  uint64(stat.Ino),
+		Device: uint64(stat.Dev),
+	}
+
+	return fileState
+}
+
+// 查看文件是否相同
+func (fs StateOS) IsSame(state StateOS) bool {
+	return fs.Inode == state.Inode && fs.Device == state.Device
 }
 
 // 只读方式打开一个文件
@@ -91,4 +121,30 @@ func (s *States) Copy() *States {
 	states := NewStates()
 	states.states = s.GetStates()
 	return states
+}
+
+// 更新状态
+func (s *States) Update(newState State) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	index, _ := s.findPrevious(newState)
+	newState.Timestamp = time.Now()
+	if index > 0 {
+		s.states[index] = newState
+	} else {
+		// 未找到旧状态，生成一个新状态
+		s.states = append(s.states, newState)
+		log.Printf("prospector new state added for %s\n", newState.Source)
+	}
+}
+
+// 搜索旧状态
+func (s *States) findPrevious(newState State) (int, State) {
+	for index, oldState := range s.states {
+		if oldState.FileStateOS.IsSame(newState.FileStateOS) {
+			return index, oldState
+		}
+	}
+	return -1, State{}
 }

@@ -20,3 +20,9 @@ type Event struct {
 	Text         *string
 	State        lcFile.State
 }
+
+func NewEvent(state lcFile.State) *Event {
+	return &Event{
+		State: state,
+	}
+}
