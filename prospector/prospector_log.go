@@ -121,23 +121,23 @@ func (p *ProspectorLog) scan() {
 		// Load last state
 		lastState := p.Prospector.states.FindPrevious(newState)
 
-		// Ignores all files which fall under ignore_older
-		if p.isIgnoreOlder(newState) {
-			logp.Debug("prospector", "Ignore file because ignore_older reached: %s", newState.Source)
-
-			// If last state is empty, it means state was removed or never created -> can be ignored
-			if !lastState.IsEmpty() && !lastState.Finished {
-				logp.Err("File is falling under ignore_older before harvesting is finished. Adjust your close_* settings: %s", newState.Source)
-			}
-			continue
-		}
+		//// Ignores all files which fall under ignore_older
+		//if p.isIgnoreOlder(newState) {
+		//	logp.Debug("prospector", "Ignore file because ignore_older reached: %s", newState.Source)
+		//
+		//	// If last state is empty, it means state was removed or never created -> can be ignored
+		//	if !lastState.IsEmpty() && !lastState.Finished {
+		//		logp.Err("File is falling under ignore_older before harvesting is finished. Adjust your close_* settings: %s", newState.Source)
+		//	}
+		//	continue
+		//}
 
 		// Decides if previous state exists
 		if lastState.IsEmpty() {
-			logp.Debug("prospector", "Start harvester for new file: %s", newState.Source)
+			log.Printf("Start harvester for new file: %s\n", newState.Source)
 			err := p.Prospector.startHarvester(newState, 0)
 			if err != nil {
-				logp.Err("Harvester could not be started on new file: %s, Err: %s", newState.Source, err)
+				log.Printf("Harvester could not be started on new file: %s, Err: %s\n", newState.Source, err)
 			}
 		} else {
 			p.harvestExistingFile(newState, lastState)
