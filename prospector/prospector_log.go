@@ -132,7 +132,7 @@ func (p *ProspectorLog) scan() {
 		//	continue
 		//}
 
-		// Decides if previous state exists
+		// 根据之前状态是否存在决定如何 harvest
 		if lastState.IsEmpty() {
 			log.Printf("Start harvester for new file: %s\n", newState.Source)
 			err := p.Prospector.startHarvester(newState, 0)
@@ -158,7 +158,7 @@ func (p *ProspectorLog) getFiles() map[string]os.FileInfo {
 			continue
 		}
 
-OUTER:
+	//OUTER:
 		for _, file := range matches {
 			// Lstat 返回一个描述 nam e指定的文件对象的 FileInfo。 如果指定的文件对象是一个符号链接，返回的 FileInfo 描述该符号链接的信息
 			fileInfo, err := os.Lstat(file)
@@ -170,7 +170,58 @@ OUTER:
 				log.Printf("Skipping directory: %s\n", file)
 				continue
 			}
-			isSymlink := fileInfo.Mode()
+			//isSymlink := fileInfo.Mode()&os.ModeSymlink > 0
+			//if isSymlink && !p.config.Symlinks {
+			//	logp.Debug("prospector", "File %s skipped as it is a symlink.", file)
+			//	continue
+			//}
+			fileInfo, err = os.Stat(file)
+			if err != nil {
+				log.Printf("stat(%s) failed: %s\n", file, err)
+				continue
+			}
+
+			paths[file] = fileInfo
 		}
+	}
+	return paths
+}
+
+// 根据已知的 state 继续 harvest 一个文件
+func (p *ProspectorLog) harvestExistingFile(newState lcFile.State, oldState lcFile.State) {
+	log.Printf("Update existing file for harvesting: %s, offset: %v\n", newState.Source, oldState.Offset)
+	// 没有 harvester 正在读取这个文件，启动一个新的 harvester
+	if oldState.Finished && newState.Fileinfo.Size() < oldState.Offset {
+		log.Printf("Old file was truncated. Starting from the beginning: %s\n", newState.Source)
+		err := p.Prospector.startHarvester(newState, 0)
+		if err != nil {
+			log.Printf("Harvester could not be started on truncated file: %s, Err: %s", newState.Source, err)
+		}
+		filesTrucated.Add(1)
+		return
+	}
+
+	// 检查文件名是否被修改了
+	if oldState.Source != "" && oldState.Source != newState.Source {
+		// 如果 old harvester 仍然在运行，不开启新的 harvester
+		log.Printf("File rename was detected: %s -> %s, Current offset: %v\n", oldState.Source, newState.Source, oldState.Offset)
+
+		if oldState.Finished {
+			log.Printf("Updating state for renamed file: %s -> %s, Current offset: %v\n", oldState.Source, newState.Source, oldState.Offset)
+			oldState.Source = newState.Source
+			err := p.Prospector.updateState(NewEvent(oldState))
+			if err != nil {
+				log.Printf("File rotation state update error: %s\n", err)
+			}
+			filesRenamed.Add(1)
+		} else {
+			log.Printf("File rename detected but harvester not finished yet.")
+		}
+	}
+	if !oldState.Finished {
+		// 什么都不做
+		log.Printf("Harvester for file is still running: %s\n", newState.Source)
+	} else {
+		log.Printf("File didn't change: %s\n", newState.Source)
 	}
 }

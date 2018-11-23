@@ -86,6 +86,11 @@ func IsSameFile(path string, info os.FileInfo) bool {
 	return os.SameFile(fileInfo, info)
 }
 
+// 状态是否为空
+func (s *State) IsEmpty() bool {
+	return *s == State{}
+}
+
 // 一批文件状态
 type States struct {
 	states []State
@@ -137,6 +142,13 @@ func (s *States) Update(newState State) {
 		s.states = append(s.states, newState)
 		log.Printf("prospector new state added for %s\n", newState.Source)
 	}
+}
+
+func (s *States) FindPrevious(newState State) State {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	_, state := s.findPrevious(newState)
+	return state
 }
 
 // 搜索旧状态

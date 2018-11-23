@@ -7,13 +7,20 @@
 package prospector
 
 import (
+	"expvar"
+	"fmt"
 	"github.com/Juntaran/EZLogCollector/harvester"
 	"github.com/pkg/errors"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
+)
+
+var (
+	harvesterSkipped = expvar.NewInt("filebeat.harvester.skipped")
 )
 
 /*
@@ -142,5 +149,47 @@ func (p *Prospector) updateState(event *Event) error {
 		return errors.New("Prospector outlet closed")
 	}
 	p.states.Update(event.State)
+	return nil
+}
+
+// 根据给定的 offset 开启一个新的 harvester，并以防打到 HarvesterLimit
+func (p *Prospector) startHarvester(state lcFile.State, offset int64) error {
+	// harvester_limit 项限制一个 prospector 并行启动的 harvester 数量，直接影响文件打开数
+	if (atomic.LoadUint64(&p.harversterCounter) > 10) {
+		harvesterSkipped.Add(1)
+		return fmt.Errorf("Harvester limit reached.")
+	}
+	state.Offset = offset
+	// state.Finished 设置为 false 表明一个 harvester running
+	state.Finished = false
+
+	// 根据 state 创建一个 harvester
+	h, err := p.createHarvester(state)
+	if err != nil {
+		return err
+	}
+	reader, err := h.Setup()
+	if err != nil {
+		return fmt.Errorf("Error setting up harvester: %s", err)
+	}
+	// State 直接更新，不通过 channel 进行状态更新
+	// State 仅在 setup 成功完成后更新
+	err = p.updateState(NewEvent(state))
+	if err != nil {
+		return err
+	}
+	p.wg.Add(1)
+	// startHarvester 不是并行的，但是需要源自操作来减少接下来的 goroutine 中的 counter
+	atomic.AddUint64(&p.harversterCounter, 1)
+	go func() {
+		defer func() {
+			// ^ 异或
+			atomic.AddUint64(&p.harversterCounter, ^uint64(0))
+			p.wg.Done()
+		}()
+
+		// 启动 harvester 并且选择正确的 type
+		h.Harvest(reader)
+	}()
 	return nil
 }
