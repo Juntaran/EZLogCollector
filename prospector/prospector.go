@@ -9,13 +9,12 @@ package prospector
 import (
 	"expvar"
 	"fmt"
-	"github.com/Juntaran/EZLogCollector/harvester"
-	"github.com/pkg/errors"
 	"log"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/Juntaran/EZLogCollector/harvester"
 	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
 )
 
@@ -41,13 +40,13 @@ var (
 		构造一个 chan，保存每个 harvester 返回的信息
 */
 type Prospector struct {
-	prospectorer 		Prospectorer
-	outlet 				Outlet
-	harvesterChan		chan *Event
-	done 				chan struct{}
-	states 				*lcFile.States
-	wg 					sync.WaitGroup
-	harversterCounter 	uint64
+	prospectorer      Prospectorer
+	outlet            Outlet
+	harvesterChan     chan *Event
+	done              chan struct{}
+	states            *lcFile.States
+	wg                sync.WaitGroup
+	harversterCounter uint64
 }
 
 // Prospectorer 接口由 ProspectorLog 和 ProspectorStdin 实现
@@ -63,11 +62,11 @@ type Outlet interface {
 
 func NewProspector(states lcFile.States, outlet Outlet) (*Prospector, error) {
 	prospector := &Prospector{
-		outlet: 		outlet,
-		harvesterChan: 	make(chan *Event),
-		done:			make(chan struct{}),
-		states:			states.Copy(),
-		wg:				sync.WaitGroup{},
+		outlet:        outlet,
+		harvesterChan: make(chan *Event),
+		done:          make(chan struct{}),
+		states:        states.Copy(),
+		wg:            sync.WaitGroup{},
 	}
 
 	if err := prospector.Init(); err != nil {
@@ -77,10 +76,12 @@ func NewProspector(states lcFile.States, outlet Outlet) (*Prospector, error) {
 }
 
 func (p *Prospector) Init() error {
-	var prospectorer 	Prospectorer
+	var prospectorer Prospectorer
+	var err error
+	prospectorer, err = NewProspectorLog(p)
 	prospectorer.Init()
 	p.prospectorer = prospectorer
-	_, err := p.createHarvester(lcFile.State{})
+	_, err = p.createHarvester(lcFile.State{})
 	if err != nil {
 		return err
 	}
@@ -98,10 +99,10 @@ func (p *Prospector) Run() {
 		defer p.wg.Done()
 		for {
 			select {
-			case <- p.done:
+			case <-p.done:
 				log.Println("Prospector channel stopped")
 				return
-			case event := <- p.harvesterChan:
+			case event := <-p.harvesterChan:
 				err := p.updateState(event)
 				if err != nil {
 					return
@@ -115,10 +116,10 @@ func (p *Prospector) Run() {
 
 	for {
 		select {
-		case <- p.done:
+		case <-p.done:
 			log.Println("Prospector ticker stopped")
 			return
-		case <- time.After(time.Second * 10):
+		case <-time.After(time.Second * 10):
 			log.Println("Run prospector")
 			p.prospectorer.Run()
 		}
@@ -139,15 +140,15 @@ func (p *Prospector) createHarvester(state lcFile.State) (*harvester.Harvester, 
 // 更新 prospector state 并发送 event 给 spooler
 // 同时更新所有 state
 func (p *Prospector) updateState(event *Event) error {
-	// clean_inactive = false
+	// default clean_inactive = 0
 	if event.State.TTL != 0 && false {
 		event.State.TTL = time.Second * 3600
 	}
-	ok := p.outlet.OnEvent(event)
-	if !ok {
-		log.Println("Prospector outlet closed")
-		return errors.New("Prospector outlet closed")
-	}
+	//ok := p.outlet.OnEvent(event)
+	//if !ok {
+	//	log.Println("Prospector outlet closed")
+	//	return errors.New("Prospector outlet closed")
+	//}
 	p.states.Update(event.State)
 	return nil
 }

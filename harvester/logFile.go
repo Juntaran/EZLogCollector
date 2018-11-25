@@ -57,6 +57,7 @@ func (r *LogFile) Read(buf []byte) (int, error) {
 		}
 
 		n, err := r.fs.Read(buf)
+		log.Printf("Update offset")
 		if n > 0 {
 			r.offset += int64(n)
 			r.lastTimeRead = time.Now()

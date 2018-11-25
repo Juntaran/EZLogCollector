@@ -114,6 +114,7 @@ func (l *Line) advance() error {
 	}
 
 	//l.outBuffer.Write(l.inBuffer.Bytes())
+	log.Println("l.inBuffer.Bytes():", string(l.inBuffer.Bytes()))
 
 	err := l.inBuffer.Advance(sz)
 	l.inBuffer.Reset()

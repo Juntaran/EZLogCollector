@@ -9,19 +9,20 @@ package harvester
 import (
 	"bytes"
 	"fmt"
-	"github.com/Juntaran/EZLogCollector/harvester/reader"
 	"io"
 	"log"
 	"os"
 	"time"
 
 	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
+	"github.com/Juntaran/EZLogCollector/harvester/reader"
+	"github.com/Juntaran/EZLogCollector/prospector"
 )
 
 type Harvester struct {
 	//config          harvesterConfig
 	state lcFile.State
-	//prospectorChan  chan *input.Event
+	prospectorChan  chan *prospector.Event
 	file            FileSource /* the lcFile being watched */
 	fileReader      *LogFile
 	//encodingFactory encoding.EncodingFactory
@@ -87,6 +88,7 @@ func (h *Harvester) Harvest(r reader.Reader) {
 
 	go func() {
 		var closeTimeout <-chan time.Time
+		// default h.config.CloseTimeout -> 5
 		closeTimeout = time.After(5)
 
 		select {
@@ -133,6 +135,8 @@ func (h *Harvester) Harvest(r reader.Reader) {
 			return
 		}
 
+		log.Println("h.state.Offset:", h.state.Offset)
+
 		// Strip UTF-8 BOM if beginning of lcFile
 		// As all BOMS are converted to UTF-8 it is enough to only remove this one
 		if h.state.Offset == 0 {
@@ -141,6 +145,7 @@ func (h *Harvester) Harvest(r reader.Reader) {
 
 		// Update offset
 		h.state.Offset += int64(message.Bytes)
+		log.Println("h.state.Offset:", h.state.Offset)
 
 		// Create state event
 		//event := input.NewEvent(h.getState())
@@ -180,9 +185,32 @@ func (h *Harvester) close() {
 		harvesterOpenFiles.Add(-1)
 
 		// 更新 offset
-		//h.sendStateUpdate()
+		h.sendStateUpdate()
 	} else {
 		log.Printf("Stopping harvester, NOT closing lcFile as lcFile info not available: %s\n", h.state.Source)
 	}
 	harvesterClosed.Add(1)
+}
+
+// 发送一个 empty event 并包含当前 state 来更新 registry
+func (h *Harvester) sendStateUpdate() bool {
+	log.Printf("Update state: %s, offset: %v\n", h.state.Source, h.state.Offset)
+	event := prospector.NewEvent(h.getState())
+	return h.sendEvent(event)
+}
+
+// 发送 event 给 spooler channel
+func (h *Harvester) sendEvent(event *prospector.Event) bool {
+	select {
+	case <-h.done:
+		return false
+	case h.prospectorChan <- event: // ship the new event downstream
+		return true
+	}
+}
+
+func (h *Harvester) getState() lcFile.State {
+	// refreshes the values in State with the values from the harvester itself
+	h.state.FileStateOS = lcFile.GetOSState(h.state.Fileinfo)
+	return h.state
 }

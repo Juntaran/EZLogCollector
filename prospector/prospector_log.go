@@ -8,11 +8,12 @@ package prospector
 
 import (
 	"expvar"
-	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
 	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/Juntaran/EZLogCollector/harvester/lcFile"
 )
 
 var (
@@ -21,14 +22,14 @@ var (
 )
 
 type ProspectorLog struct {
-	Prospector		*Prospector
+	Prospector *Prospector
 	//config 			prospectorConfig
-	lastClean 		time.Time
+	lastClean time.Time
 }
 
 func NewProspectorLog(p *Prospector) (*ProspectorLog, error) {
 	prospectorer := &ProspectorLog{
-		Prospector: 	p,
+		Prospector: p,
 		//config: 		p.config,
 	}
 	return prospectorer, nil
@@ -58,7 +59,7 @@ func (p *ProspectorLog) Init() {
 // hasFile returns true in case the given filePath is part of this prospector
 func (p *ProspectorLog) hasFile(filePath string) bool {
 	//for _, glob := range p.config.Paths {
-	path := []string{"/Users/juntaran/Workspace/goWorkspace/src/github.com/Juntaran/EZLogCollector/tests/files/logs/*.log"}
+	path := []string{"/Users/juntaran/Workspace/goWorkspace/src/github.com/Juntaran/EZLogCollector/tests/files/logs/ezlog/*.log"}
 	for _, glob := range path {
 		// Evaluate the path as a wildcards/shell glob
 		matches, err := filepath.Glob(glob)
@@ -150,7 +151,7 @@ func (p *ProspectorLog) getFiles() map[string]os.FileInfo {
 	paths := map[string]os.FileInfo{}
 
 	// range p.config.Paths
-	path := []string{"/Users/juntaran/Workspace/goWorkspace/src/github.com/Juntaran/EZLogCollector/tests/files/logs/*.log"}
+	path := []string{"/Users/juntaran/Workspace/goWorkspace/src/github.com/Juntaran/EZLogCollector/tests/files/logs/ezlog/*.log"}
 	for _, glob := range path {
 		matches, err := filepath.Glob(glob)
 		if err != nil {
@@ -158,9 +159,9 @@ func (p *ProspectorLog) getFiles() map[string]os.FileInfo {
 			continue
 		}
 
-	//OUTER:
+		//OUTER:
 		for _, file := range matches {
-			// Lstat 返回一个描述 nam e指定的文件对象的 FileInfo。 如果指定的文件对象是一个符号链接，返回的 FileInfo 描述该符号链接的信息
+			// Lstat 返回一个描述 name 指定的文件对象的 FileInfo。 如果指定的文件对象是一个符号链接，返回的 FileInfo 描述该符号链接的信息
 			fileInfo, err := os.Lstat(file)
 			if err != nil {
 				log.Printf("lstat(%s) failed: %s\n", file, err)
